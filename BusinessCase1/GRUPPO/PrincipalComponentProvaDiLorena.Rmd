@@ -1,0 +1,377 @@
+---
+title: "provoIoBank"
+output: html_document
+date: "2024-02-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, fig.align='center')
+knitr::opts_knit$set(root.dir = "/Users/michelebersani/Desktop/Università_politecnico/MAGISTRALE/ANNO_1/SECONDO_SEM/FINTECH/LABORATORIO/BusinessCase1")
+```
+```{r}
+library(mvtnorm)
+library(car)
+library(rgl)
+library(tidyverse)
+library(graphics)
+library(grDevices)
+library(readxl)
+
+setwd("/Users/michelebersani/Desktop/Università_politecnico/MAGISTRALE/ANNO_1/SECONDO_SEM/FINTECH/LABORATORIO/BusinessCase1")
+data <- read_excel("/Users/michelebersani/Desktop/Università_politecnico/MAGISTRALE/ANNO_1/SECONDO_SEM/FINTECH/LABORATORIO/BusinessCase1/BankClients.xlsx", sheet = "Data")
+head(data)
+dim(data)
+```
+```{r}
+colCat<-c(3,4,5,6)
+dati<-data[,-colCat]
+dati<-dati[,-1]
+```
+
+
+
+```{r}
+boxplot(dati, title='dati originali')
+
+```
+da qui scelgo di togliere age in quanto non ha una scala coerente coi dati
+
+```{r}
+dati<-dati[,-1]
+```
+
+
+
+I perform the PCA, showing the Standard deviation (square root of eigenvalues), the proportion of variance explained by each PC and the Cumulative Proportion of explained variance:
+```{r}
+pccall <- princomp(dati, scores=T)
+summary(pccall)
+```
+
+Here is the associated Screeplot:
+```{r}
+layout(matrix(c(2, 3, 1, 3), 2, byrow=T))
+plot(pccall, las=2, main='Principal Components')
+abline(h=1, col='blue')
+varmax_pc <- max(pccall$sd)
+barplot(sapply(dati,sd)^2, las=2, main='Original Variables', ylab='Variances', ylim=c(0, varmax_pc^2))
+plot(cumsum(pccall$sde^2)/sum(pccall$sde^2), type='b', axes=F, xlab='Number of components', ylab='Contribution to the total variance')
+
+# USO ELBOW OPPURE VEDO QUANDO SUPERO UNA SOGLIA (DI SOLITO 80/90%)
+#abline(h=0.8, col='blue')
+box()
+axis(2,at=0:10/10,labels=0:10/10)
+axis(1,at=1:ncol(dati),labels=1:ncol(dati),las=2)
+
+```
+
+Plot of the loadings of the first 3 PCs:
+```{r}
+k = 3 #*************************************************************************
+loadings <- pccall$loadings
+par(mfrow = c(k, 1))
+for(i in 1:k) barplot(loadings[,i], ylim = c(-1, 1), main=paste('Loadings PC ',i,sep=''))
+#Valori positivi e negativi: Un loading TUTTO positivo indica che la variabile originale è positivamente correlata con la componente principale, mentre un loading negativo indica una correlazione negativa. Un valore più vicino a 0 indica una correlazione debole.
+#la somma dei quadrati dei loadings di una componente principale rappresenta la percentuale di varianza spiegata da quella componente.
+#Se ci sono gruppi di barre simili nel barplot dei loadings, potrebbe indicare che queste variabili sono correlate tra loro e hanno un impatto simile sulla componente principale.
+```
+I found that component one and 2 represents mostly the variability of FamilySize and Investments.Moreover they represent more than 87% of the total variability so to perform a grouping between the clients we could consider these two variables
+
+
+For Investments we have that they vary along component 2
+```{r}
+scores<- pccall$scores
+group<-factor(data$Investments)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,c(1,2)], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+And for FamilySize we have that they vary along component 1
+```{r}
+scores<- pccall$scores
+group<-factor(data$FamilySize)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,c(1,2)], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+If we match the two groupings we obtain 18 clusters
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Now I perform again the PCA and I try to cluster with these two variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+```{r}
+dati$FamilySize<-NULL
+dati$Investments<-NULL
+```
+
+I perform the PCA, showing the Standard deviation (square root of eigenvalues), the proportion of variance explained by each PC and the Cumulative Proportion of explained variance:
+```{r}
+pccall <- princomp(dati, scores=T)
+summary(pccall)
+```
+
+Here is the associated Screeplot:
+```{r}
+layout(matrix(c(2, 3, 1, 3), 2, byrow=T))
+plot(pccall, las=2, main='Principal Components')
+abline(h=1, col='blue')
+varmax_pc <- max(pccall$sd)
+barplot(sapply(dati,sd)^2, las=2, main='Original Variables', ylab='Variances', ylim=c(0, varmax_pc^2))
+plot(cumsum(pccall$sde^2)/sum(pccall$sde^2), type='b', axes=F, xlab='Number of components', ylab='Contribution to the total variance')
+
+# USO ELBOW OPPURE VEDO QUANDO SUPERO UNA SOGLIA (DI SOLITO 80/90%)
+#abline(h=0.8, col='blue')
+box()
+axis(2,at=0:10/10,labels=0:10/10)
+axis(1,at=1:ncol(dati),labels=1:ncol(dati),las=2)
+
+```
+Not a so good result
+
+Plot of the loadings of the first 3 PCs:
+```{r}
+k = 3 #*************************************************************************
+loadings <- pccall$loadings
+par(mfrow = c(k, 1))
+for(i in 1:k) barplot(loadings[,i], ylim = c(-1, 1), main=paste('Loadings PC ',i,sep=''))
+#Valori positivi e negativi: Un loading TUTTO positivo indica che la variabile originale è positivamente correlata con la componente principale, mentre un loading negativo indica una correlazione negativa. Un valore più vicino a 0 indica una correlazione debole.
+#la somma dei quadrati dei loadings di una componente principale rappresenta la percentuale di varianza spiegata da quella componente.
+#Se ci sono gruppi di barre simili nel barplot dei loadings, potrebbe indicare che queste variabili sono correlate tra loro e hanno un impatto simile sulla componente principale.
+```
+#plot 3d per group FamilySize
+```{r}
+scores<- pccall$scores
+group<-factor(data$FamilySize)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+library(rgl)
+plot.new()
+
+plot3d(scores[,1:3], col=col.lab, type="s", size=2)
+
+legend("topright", legend=levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+#plot 3d per group Investments
+```{r}
+scores<- pccall$scores
+group<-factor(data$Investments)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+library(rgl)
+plot.new()
+
+plot3d(scores[,1:3], col=col.lab, type="s", size=2)
+
+legend("topright", legend=levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+
+
+```{r}
+scores<- pccall$scores
+group<-factor(data$Investments)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,1:2], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+for the investments we observe that the ones in group 2 have scores lower for the 1st PC and so basically the ones that have means under the other for quite all the features
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Divido in base all'età in 6 gruppi
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+```{r}
+n<-dim(dati)[1]
+GroupAge<-rep(0,n)
+for(i in 1:n){
+  if(data$Age[i]<=30)
+    GroupAge[i]<-0
+  if(data$Age[i]>30 && data$Age[i]<=40 )
+    GroupAge[i]<-1
+ if(data$Age[i]>40 && data$Age[i]<=50 )
+    GroupAge[i]<-2
+ if(data$Age[i]>50 && data$Age[i]<=70 )
+    GroupAge[i]<-3
+  if(data$Age[i]>70 && data$Age[i]<=80 )
+    GroupAge[i]<-4
+  if(data$Age[i]>80)
+    GroupAge[i]<-5
+}
+```
+
+```{r}
+scores<- pccall$scores
+group<-factor(GroupAge)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,1:2], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+
+#plot 3d per group Age
+```{r}
+scores<- pccall$scores
+group<-factor(GroupAge)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+library(rgl)
+plot.new()
+
+plot3d(scores[,1:3], col=col.lab, type="s", size=2)
+
+legend("topright", legend=levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+nessuna netta evidenza
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#plot 3D per group Job
+```{r}
+scores<- pccall$scores
+group<-factor(data$Job)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+library(rgl)
+plot.new()
+
+plot3d(scores[,1:3], col=col.lab, type="s", size=2)
+
+legend("topright", legend=levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+noto che il job 5 ha valori bassi rispetto alle medie del 1st PC e valori positivi per il 2nd PC e il job 2  ha valori alti per il 1st PC
+
+osservo solo component 1 and 2
+```{r}
+scores<- pccall$scores
+group<-factor(data$Job)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,c(1,2)], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+we confirm what said before
+we can interpret this sayng that the clients with job 5 are the ones with less debt and less savings but that are the ones more "friends" of the Bank
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#plot 3D per group CitySize
+```{r}
+scores<- pccall$scores
+group<-factor(data$CitySize)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+library(rgl)
+plot.new()
+
+plot3d(scores[,1:3], col=col.lab, type="s", size=2)
+
+legend("topright", legend=levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+osservo solo component 1 and 2
+```{r}
+scores<- pccall$scores
+group<-factor(data$CitySize)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,c(1,2)], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+CitySize 3 ha Component sopra la media
+
+
+Provo il clustering con Investments
+
+#plot 3D per group Investments
+```{r}
+scores<- pccall$scores
+group<-factor(data$Investments)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+library(rgl)
+plot.new()
+
+plot3d(scores[,1:3], col=col.lab, type="s", size=2)
+
+legend("topright", legend=levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```
+osservo solo component 1 and 2
+```{r}
+scores<- pccall$scores
+group<-factor(data$Investments)   #da modificare
+col.ramp <- rainbow(length(levels(group)))
+
+col.lab <- rep(NA, n)
+for(i in 1:n)
+col.lab[i] = col.ramp[which(group[i] == levels(group))]
+
+plot(scores[,c(1,2)], col=col.lab, pch=19)
+abline(h=0, v=0, lty=2, col='grey')
+legend('topright', levels(group), fill=rainbow(length(levels(group))), bty='n')
+
+```

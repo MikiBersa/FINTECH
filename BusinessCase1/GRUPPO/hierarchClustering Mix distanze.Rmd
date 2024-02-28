@@ -1,0 +1,151 @@
+---
+title: "hierarchClust su sample"
+output: html_document
+date: "2024-02-28"
+---
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+preparazione dati
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, fig.align='center')
+knitr::opts_knit$set(root.dir = "C:/Users/coraz/Desktop/fintech/BusinessCase1")
+```
+```{r}
+library(mvtnorm)
+library(car)
+library(rgl)
+library(tidyverse)
+library(graphics)
+library(grDevices)
+library(readxl)
+if (!requireNamespace("proxy", quietly = TRUE)) {
+  install.packages("proxy")
+}
+library(proxy)
+setwd("C:/Users/coraz/Desktop/fintech/BusinessCase1")
+data <- read_excel("C:/Users/coraz/Desktop/fintech/BusinessCase1/Clients.xlsx", sheet = "Data")
+head(data)
+dim(data)
+data<-data[1:5000,]
+```
+
+numerical variables
+   "Age"    "FamilySize"  "Income"      "Wealth" "Debt"        "FinEdu"      "ESG"         "Digital"     "BankFriend"  "LifeStyle"   "Luxury"      "Saving"
+```{r}
+num_features_index<-c(2,7,8,9,10,11,12,13,14,15,16,17)
+num_features<-data[,num_features_index]
+```
+```{r}
+#standardizzo FamilySize e Age
+num_features$FamilySize<- (num_features$FamilySize-min(num_features$FamilySize))/(max(num_features$FamilySize)-min(num_features$FamilySize))
+
+#standardizzo FamilySize e Age
+num_features$Age<- (num_features$Age-min(num_features$Age))/(max(num_features$Age)-min(num_features$Age))
+```
+
+categorical variables
+"Gender"      "Job"         "Area"        "CitySize"         "Investments"
+```{r}
+cat_features_index<-c(3,4,5,6,18)
+cat_features<-data[,cat_features_index]
+```
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Hierarchical clustering with numerical features
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+```{r}
+#setting linkage and distances
+method <- 'euclidean' # 'canberra', 'manhattan'
+#distance matrix
+distances<-dist(num_features, method=method) 
+```
+
+
+distances for the categorical features
+```{r}
+# Converti le variabili categoriche in variabili dummy
+dummy_data <- model.matrix(~ . - 1, cat_features)
+library(EnsCat)
+hamming_distances<-hammingD(dummy_data)
+```
+
+weightening the distances
+```{r}
+# Unisci le due matrici delle distanze
+combined_distances <- 12/17* distances +  5/17*hamming_distances
+combined_distances <- as.dist(combined_distances)
+```
+
+To chose the better clustering linkage i perform the Hierarchical Clustering plotting the dendrograms with single, average, complete and ward.D2 linkages:
+```{r}
+#setting linkage and distances
+method <- 'euclidean' # 'canberra', 'manhattan' *********************************************************
+linkages <- c('single', 'average', 'complete', 'ward.D2')
+
+```
+```{r}
+gruppi.single <- hclust(combined_distances, method=linkages[1])
+gruppi.average <- hclust(combined_distances, method=linkages[2])
+gruppi.complete <- hclust(combined_distances, method=linkages[3])
+gruppi.ward <- hclust(combined_distances, method=linkages[4])
+
+#plot the dendrograms:
+par(mfrow=c(2,2))
+plot(gruppi.single, main=paste(method, ' - ', linkages[1]), hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+plot(gruppi.average, main=paste(method, ' - ', linkages[2]), hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+plot(gruppi.complete, main=paste(method, ' - ', linkages[3]), hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+plot(gruppi.ward, main=paste(method, ' - ', linkages[4]), hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+```
+I compute the cophenetic coefficients in order to perform the choice:
+```{r}
+cophmatrix.single <- cophenetic(gruppi.single)    #dissimilarity
+cor.single <- cor(combined_distances, cophmatrix.single)
+cophmatrix.average <- cophenetic(gruppi.average)    #dissimilarity
+cor.average <- cor(combined_distances, cophmatrix.average)
+cophmatrix.complete <- cophenetic(gruppi.complete)    #dissimilarity
+cor.complete <- cor(combined_distances, cophmatrix.complete)
+cophmatrix.ward <- cophenetic(gruppi.ward)    #dissimilarity
+cor.ward <- cor(combined_distances, cophmatrix.ward)
+print(paste("Single: ", cor.single))
+print(paste("Average: ", cor.average))
+print(paste("Complete: ", cor.complete))
+print(paste("Ward: ", cor.ward))
+#A higher CCC value (close to 1) indicates a better representation of the original dissimilarities in the dendrogram.
+```
+
+I choose the ward.D2 linkage. The best choice of k, the number of clusters is 6, so i cut the dendrogram:
+```{r}
+k <- 4 #************************************************************************
+linkage <- 'ward.D2'# 'single', 'complete', 'average'*********************************************************
+gruppi <- hclust(combined_distances, method=linkage) #***********************************
+
+plot(gruppi, main=paste(method, ' - ', linkage), hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+rect.hclust(gruppi, k=k)
+
+clusters <- cutree(gruppi, k=k)
+
+```
+
+Clusters dimension:
+```{r}
+table(clusters)
+```
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+MULTIDIMENSIONAL SCALING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+```{r}
+dati_red<- cmdscale(combined_distances, k=2)
+```
+
+I plot the data in the coordinates:
+```{r}
+plot(dati_red[,1], dati_red[,2], asp=1, cex=1, axes=FALSE, main="MDS of data",xlab='',ylab='')
+#text(dati_red[,1], dati_red[,2], labels=rownames(as.matrix(dati)), cex = 0.75, pos = 3)
+```
+Comparison of the original matrix with the new one: the more the data are on the diagonal the more accurate is the new representation.
+```{r}
+dist_red=dist(dati_red)
+plot(combined_distances, dist_red)
+```
