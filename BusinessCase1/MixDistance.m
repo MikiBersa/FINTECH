@@ -27,8 +27,8 @@ for i = 1:nFeatures
 end
 nNum = nFeatures - nCat;
 
-disp(nCat);
-disp(nNum);
+% disp(nCat);
+% disp(nNum);
 %% Compute distances, separately
 % Calcola le distanze tra le variabili categoriche nelle prime nCat colonne di X e Y utilizzando la distanza di Hamming.
 DCat = pdist2(X(:,1:nCat), Y(:,1:nCat), 'hamming');
@@ -38,7 +38,7 @@ DNum = pdist2(X(:,nCat+1:end), Y(:,nCat+1:end), 'cityblock');
 wCat = nCat/(nCat + nNum); 
 D = wCat*DCat + (1 - wCat)*DNum;
 
-disp(D);
+% disp(D);
 end
 
 
