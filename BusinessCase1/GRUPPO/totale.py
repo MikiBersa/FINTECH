@@ -36,7 +36,7 @@ def is_categorical_column(column):
     # Se la proporzione è inferiore a una soglia arbitraria (ad esempio, 0.05),
     # considera la colonna come una variabile categorica
     # if unique_ratio < 0.005:
-    if unique_ratio < 0.5:
+    if unique_ratio < 0.05:
         return True
     else:
         return False
@@ -57,14 +57,19 @@ for pos in range(len(df_new.columns.tolist())):
        num.append(values[: , pos])
 
 num = np.transpose(np.array(num))
-
 # per i numeri faccio lo scalo in base alla media
-num = (num - num.mean()) / num.std()
+# num = (num - num.mean()) / num.std()
+minimo = np.min(df_new.values[:, 0])
+maximo = np.max(df_new.values[:, 0])
+print(df_new.shape[0])
+for riga in range(df_new.shape[0]):
+    num[riga, 0] = (df_new.values[riga, 0] - minimo) / (maximo - minimo )
 
 cat = np.transpose(np.array(cat))
 
 
 print(num.shape)
+# print("NUM: ",num)
 print(cat.shape)
 
 # creazione dei dummyvar
@@ -80,7 +85,8 @@ for col in range(1, cat.shape[1]):
 
 X = np.concatenate((cat_dummies, num), axis=1)
 
-print(X)
+
+print("X: ", X[0])
 
 # DEFINIZIONE DELLA FUNZIONE DISTANZA:
 
@@ -103,20 +109,6 @@ def mixDistance(x, y):
 
     # identidicare dimensione dei numeri per differenza
     n_num = len(X[0]) - n_cat
-
-    """
-    print(X.shape)
-    DCat = pdist(X[:, :n_cat], 'hamming')
-    print(DCat.shape)
-    DNum = pdist(X[:, n_cat:], 'cityblock')
-    print(DNum.shape)
-
-    print(DCat)
-
-    weightC = n_cat / (n_num + n_cat)
-
-    return weightC*DCat + (1 - weightC)*DNum
-    """
 
     NEW = np.vstack((x, y))
     # print(NEW)
@@ -164,19 +156,18 @@ print("Insertia: ", kmedoids.inertia_)
 
 
 # IDENTIFICAZIONE INERZA
-Ks = range(1, 10)
+Ks = range(1, 6)
 # KMeans(i) RUN THE ALGORITM WITH i CLUSTERS
 # FALLO SUL DATA SET X
 # POI CALCOLA  L'INERTIA
 inertia = [KMedoids(n_clusters=i, metric=mixDistance).fit(X).inertia_ for i in Ks]
 
-"""
+
 fig = plt.figure()
 plt.plot(Ks, inertia, '-bo')
 plt.xlabel('Number of clusters')
 plt.ylabel('Inertia (within-cluster sum of squares)')
 plt.show()
-"""
 
 range_n_clusters=[2,3,4,5,6,7,8,9,10]
 for n_clusters in range_n_clusters:
